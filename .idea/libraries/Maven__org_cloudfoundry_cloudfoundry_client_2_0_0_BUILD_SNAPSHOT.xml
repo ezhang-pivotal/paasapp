@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: org.cloudfoundry:cloudfoundry-client:2.0.0.BUILD-SNAPSHOT">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/cloudfoundry/cloudfoundry-client/2.0.0.BUILD-SNAPSHOT/cloudfoundry-client-2.0.0.BUILD-20160526.170628-885.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/org/cloudfoundry/cloudfoundry-client/2.0.0.BUILD-SNAPSHOT/cloudfoundry-client-2.0.0.BUILD-20160526.170628-885-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/cloudfoundry/cloudfoundry-client/2.0.0.BUILD-SNAPSHOT/cloudfoundry-client-2.0.0.BUILD-20160526.170628-885-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
