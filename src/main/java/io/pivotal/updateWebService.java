@@ -18,5 +18,8 @@ public class updateWebService {
         String applicationName = "paasapp";//PaasappApplication.getApplicationName();
 
         PaasappApplication.rename("paasapp",updateWebFile.get("appName"));
+        PaasappApplication.setEnvVars(applicationName,updateWebFile);
+        String fileName = PaasappApplication.download(updateWebFile.get("appLocation"));
+
     }
 }

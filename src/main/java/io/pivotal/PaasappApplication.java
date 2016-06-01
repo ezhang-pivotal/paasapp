@@ -15,7 +15,6 @@
  */
 package io.pivotal;
 
-import io.pivotal.cfclient.CFClient;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -24,6 +23,8 @@ import org.cloudfoundry.operations.CloudFoundryOperations;
 import org.cloudfoundry.operations.applications.ApplicationSummary;
 import org.cloudfoundry.operations.applications.RenameApplicationRequest;
 import org.cloudfoundry.operations.applications.SetEnvironmentVariableApplicationRequest;
+import org.cloudfoundry.operations.routes.CreateRouteRequest;
+import org.cloudfoundry.operations.routes.DeleteRouteRequest;
 import org.cloudfoundry.spring.client.SpringCloudFoundryClient;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.SerializationConfig;
@@ -103,19 +104,27 @@ public class PaasappApplication {
 
         return "/success";
     }
-
+    public static void changeRoute(
+            String name,
+            String newName){
+        cloudFoundryOperations.routes().create(CreateRouteRequest.builder()
+                .host(newName)
+                .domain("local.pcfdev.io")
+                .space("pcfdev-space")
+                .build());
+        cloudFoundryOperations.routes().delete(DeleteRouteRequest.builder()
+                .host(name)
+                .domain("local.pcfdev.io")
+                .build());
+    }
     public static void rename(
                        String name,
                        String newName){
-        RenameApplicationRequest renameApplicationRequest = RenameApplicationRequest.builder()
+        cloudFoundryOperations.applications().rename(RenameApplicationRequest.builder()
                 .name(name)
                 .newName(newName)
-                .build();
-        cloudFoundryOperations.applications().rename(renameApplicationRequest)
-                .subscribe()
-                .doOnError(Throwable::printStackTrace);
-
-        cloudFoundryOperations.applications().list().map(ApplicationSummary::getName).subscribe(System.out::println);
+                .build())
+                .subscribe();
     }
 
 

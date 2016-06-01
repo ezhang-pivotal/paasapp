@@ -29,11 +29,11 @@ public class RunTaskService {
     public void runTask(@RequestBody Map<String, String> runTaskRequest) throws  Exception{
         System.out.println("Run task request: "+runTaskRequest);
         //setTaskApp
-        String applicationName = "paasapp";//PaasappApplication.getApplicationName();
-        //PaasappApplication.rename(applicationName,runTaskRequest.get("taskName"));
+        String applicationName = PaasappApplication.getApplicationName();
         PaasappApplication.setEnvVars(applicationName,runTaskRequest);
+        PaasappApplication.changeRoute(applicationName,runTaskRequest.get("taskName"));
         String fileName = PaasappApplication.download(runTaskRequest.get("appLocation"));
-        //doRunTask(runTaskRequest.get("cmd"),fileName);
+        doRunTask(runTaskRequest.get("cmd"),fileName);
     }
 
     public void doRunTask(String cmd, String appFileName) throws Exception {
