@@ -38,6 +38,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.multipart.commons.CommonsMultipartResolver;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import javax.servlet.http.HttpServletRequest;
@@ -162,18 +163,14 @@ public class PaasappApplication {
                                  String appName,
                                  Map<String, String> env) {
 
-       for (Map.Entry<String, String> entry : env.entrySet()) {
-            System.out.println("set env "+entry.getKey()+":"+entry.getValue());
-            cloudFoundryOperations.applications()
-                    .setEnvironmentVariable(SetEnvironmentVariableApplicationRequest.builder()
-                            .name(appName)
-                            .variableName(entry.getKey())
-                            .variableValue(entry.getValue())
-                            .build()
-                    ).subscribe()
-                    .doOnSuccess(v -> System.out.println(String.format("Done set env for %s", appName)))
-                    .doOnError(e -> System.err.println(String.format("Error set env for %s", appName)));
-        }
+           Flux.fromIterable(env.entrySet())
+                   .concatMap(entry -> cloudFoundryOperations.applications()
+                           .setEnvironmentVariable(SetEnvironmentVariableApplicationRequest.builder()
+                                   .name(appName)
+                                   .variableName(entry.getKey())
+                                   .variableValue(entry.getValue())
+                                   .build()))
+                   .subscribe();
     }
 
     public static String getApplicationName() throws IOException{
