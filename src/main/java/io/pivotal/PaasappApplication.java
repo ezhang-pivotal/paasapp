@@ -20,35 +20,24 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.cloudfoundry.client.CloudFoundryClient;
-import org.cloudfoundry.client.v2.applications.*;
-import org.cloudfoundry.doppler.DopplerClient;
 import org.cloudfoundry.operations.CloudFoundryOperations;
-import org.cloudfoundry.operations.CloudFoundryOperationsBuilder;
 import org.cloudfoundry.operations.applications.ApplicationSummary;
 import org.cloudfoundry.operations.applications.RenameApplicationRequest;
 import org.cloudfoundry.operations.applications.SetEnvironmentVariableApplicationRequest;
-import org.cloudfoundry.reactor.doppler.ReactorDopplerClient;
 import org.cloudfoundry.spring.client.SpringCloudFoundryClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.map.SerializationConfig;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.multipart.commons.CommonsMultipartResolver;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import javax.servlet.http.HttpServletRequest;
@@ -56,7 +45,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -130,7 +118,7 @@ public class PaasappApplication {
     }
 
 
-    public static void download(String appLocation) throws Exception {
+    public static String download(String appLocation) throws Exception {
         System.out.println(appLocation);
 
         HttpGet httpGet = new HttpGet(appLocation);
@@ -149,7 +137,7 @@ public class PaasappApplication {
             File file = new File(fileName);
             if (file.exists()){
                 System.out.println(fileName+" exists");
-                return;
+                return fileName;
             }
 
             fos = new FileOutputStream(file);
@@ -167,27 +155,14 @@ public class PaasappApplication {
             inputStream.close();
         }
         httpClient.close();
-
+        return fileName;
     }
 
-    public static Mono<Void> setEnvVars(
+    public static void setEnvVars(
                                  String appName,
                                  Map<String, String> env) {
-        cloudFoundryOperations.applications()
-                .setEnvironmentVariable(SetEnvironmentVariableApplicationRequest.builder()
-                        .name(appName)
-                        .variableName("taskName")
-                        .variableValue(env.get("taskName"))
-                        .build()
-                ).subscribe();
-        cloudFoundryOperations.applications()
-                .setEnvironmentVariable(SetEnvironmentVariableApplicationRequest.builder()
-                        .name(appName)
-                        .variableName("appLocation")
-                        .variableValue(env.get("appLocation"))
-                        .build()
-                ).subscribe();
-/*        for (Map.Entry<String, String> entry : env.entrySet()) {
+
+       for (Map.Entry<String, String> entry : env.entrySet()) {
             System.out.println("set env "+entry.getKey()+":"+entry.getValue());
             cloudFoundryOperations.applications()
                     .setEnvironmentVariable(SetEnvironmentVariableApplicationRequest.builder()
@@ -195,37 +170,19 @@ public class PaasappApplication {
                             .variableName(entry.getKey())
                             .variableValue(entry.getValue())
                             .build()
-                    ).subscribe();
-        }*/
-
-        return Mono.empty();
-
-/*        if (env==null) {
-            return Mono.empty();
-        } else {
-            Mono<Void> setAll = Mono.empty();
-            for (Map.Entry<String, String> entry : env.entrySet()) {
-                setAll = setAll.after(() -> {
-                    System.out.println("Set var starting: "+entry);
-                    return cloudFoundryOperations.applications()
-                            .setEnvironmentVariable(SetEnvironmentVariableApplicationRequest.builder()
-                                    .name(appName)
-                                    .variableName(entry.getKey())
-                                    .variableValue(entry.getValue())
-                                    .build()
-                            )
-                            .after(() -> {
-                                System.out.println("Set var complete: "+entry);
-                                return Mono.empty();
-                            });
-                });
-            }
-            return setAll;
-        }*/
+                    ).subscribe()
+                    .doOnSuccess(v -> System.out.println(String.format("Done set env for %s", appName)))
+                    .doOnError(e -> System.err.println(String.format("Error set env for %s", appName)));
+        }
     }
 
-    public static String findEmptyApplication(){
-        String applicationName = "";
+    public static String getApplicationName() throws IOException{
+        String vcap_appication = System.getenv("VCAP_APPLICATION");
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(SerializationConfig.Feature.INDENT_OUTPUT, Boolean.TRUE);
+        Map<String,String> map = mapper.readValue(vcap_appication,Map.class);
+        System.out.println(map);
+        String applicationName = map.get("application_name");
 
         return applicationName;
     }

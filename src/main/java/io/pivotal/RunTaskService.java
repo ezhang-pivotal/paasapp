@@ -15,22 +15,8 @@
  */
 package io.pivotal;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.cloudfoundry.operations.CloudFoundryOperations;
-import org.cloudfoundry.operations.applications.*;
-import org.cloudfoundry.operations.routes.CreateRouteRequest;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.MultipartHttpServletRequest;
-import org.springframework.web.multipart.commons.CommonsMultipartResolver;
-import reactor.core.publisher.Mono;
-
-import javax.servlet.http.HttpServletRequest;
 import java.io.*;
-import java.util.Iterator;
 import java.util.Map;
 
 @RestController
@@ -43,16 +29,20 @@ public class RunTaskService {
     public void runTask(@RequestBody Map<String, String> runTaskRequest) throws  Exception{
         System.out.println("Run task request: "+runTaskRequest);
         //setTaskApp
-        System.out.println(System.getenv("VCAP_APPLICATION"));
-        //PaasappApplication.rename("paasapp",runTaskRequest.get("taskName"));
-        PaasappApplication.setEnvVars("paasapp",runTaskRequest);
-        PaasappApplication.download(runTaskRequest.get("appLocation"));
-        doRunTask(runTaskRequest.get("cmd"));
+        String applicationName = "paasapp";//PaasappApplication.getApplicationName();
+        //PaasappApplication.rename(applicationName,runTaskRequest.get("taskName"));
+        PaasappApplication.setEnvVars(applicationName,runTaskRequest);
+        String fileName = PaasappApplication.download(runTaskRequest.get("appLocation"));
+        //doRunTask(runTaskRequest.get("cmd"),fileName);
     }
 
-    public void doRunTask(String cmd) throws Exception {
+    public void doRunTask(String cmd, String appFileName) throws Exception {
         try {
-            Process ps = Runtime.getRuntime().exec(cmd);
+
+            String[] env = new String[2];
+            env[0]= ("PATH=/home/vcap/app/.java-buildpack/open_jdk_jre/bin");
+            env[1]=("CLASSPATH="+appFileName);
+            Process ps = Runtime.getRuntime().exec("/home/vcap/app/.java-buildpack/open_jdk_jre/bin/"+cmd,env);
             ps.waitFor();
 
             BufferedReader br = new BufferedReader(new InputStreamReader(ps.getInputStream()));
