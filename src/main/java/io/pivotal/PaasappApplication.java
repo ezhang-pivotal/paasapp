@@ -20,22 +20,25 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.cloudfoundry.operations.CloudFoundryOperations;
-import org.cloudfoundry.operations.applications.ApplicationSummary;
-import org.cloudfoundry.operations.applications.RenameApplicationRequest;
-import org.cloudfoundry.operations.applications.SetEnvironmentVariableApplicationRequest;
+import org.cloudfoundry.operations.applications.*;
 import org.cloudfoundry.operations.routes.CreateRouteRequest;
 import org.cloudfoundry.operations.routes.DeleteRouteRequest;
+import org.cloudfoundry.operations.routes.MapRouteRequest;
+import org.cloudfoundry.operations.routes.UnmapRouteRequest;
 import org.cloudfoundry.spring.client.SpringCloudFoundryClient;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.SerializationConfig;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.web.SpringBootServletInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.http.*;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.multipart.commons.CommonsMultipartResolver;
@@ -43,15 +46,15 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import javax.servlet.http.HttpServletRequest;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-
-import static org.cloudfoundry.util.test.TestObjects.fill;
-import static reactor.core.publisher.Mono.when;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 @ComponentScan
 @Controller
@@ -59,22 +62,22 @@ import static reactor.core.publisher.Mono.when;
 @EnableAutoConfiguration
 @EnableWebSecurity
 /**
+ * PaaS App
  * Created by ezhang on 16/5/15.
  */
-public class PaasappApplication {
+public class PaasappApplication extends SpringBootServletInitializer {
 
 	@RequestMapping(value = "/")
 	String home() {
 		return "Hello PaaS App";
 	}
-    public static ConfigurableApplicationContext ctx;
+    public static ConfigurableApplicationContext context;
     public static SpringCloudFoundryClient cloudFoundryClient;
     public static CloudFoundryOperations cloudFoundryOperations;
-
     public static void main(String[] args) {
-        ctx =SpringApplication.run(PaasappApplication.class, args);
-        cloudFoundryClient = ctx.getBean("cloudFoundryClient",SpringCloudFoundryClient.class);
-        cloudFoundryOperations = ctx.getBean("cloudFoundryOperations",CloudFoundryOperations.class);
+        context =SpringApplication.run(PaasappApplication.class, args);
+        cloudFoundryClient = context.getBean("cloudFoundryClient",SpringCloudFoundryClient.class);
+        cloudFoundryOperations = context.getBean("cloudFoundryOperations",CloudFoundryOperations.class);
 
     }
     @RequestMapping("upload")
@@ -104,7 +107,8 @@ public class PaasappApplication {
 
         return "/success";
     }
-    public static void changeRoute(
+
+    public static void setRoute(
             String name,
             String newName){
         cloudFoundryOperations.routes().create(CreateRouteRequest.builder()
@@ -112,11 +116,29 @@ public class PaasappApplication {
                 .domain("local.pcfdev.io")
                 .space("pcfdev-space")
                 .build());
+        cloudFoundryOperations.routes().map(MapRouteRequest.builder()
+                .applicationName(name)
+                .host(newName)
+                .domain("local.pcfdev.io")
+                .build()
+        );
+    }
+
+    public static void unsetRoute(
+            String name,
+            String newName){
         cloudFoundryOperations.routes().delete(DeleteRouteRequest.builder()
-                .host(name)
+                .host(newName)
                 .domain("local.pcfdev.io")
                 .build());
+        cloudFoundryOperations.routes().unmap(UnmapRouteRequest.builder()
+                .applicationName(name)
+                .host(newName)
+                .domain("local.pcfdev.io")
+                .build()
+        );
     }
+
     public static void rename(
                        String name,
                        String newName){
@@ -125,47 +147,6 @@ public class PaasappApplication {
                 .newName(newName)
                 .build())
                 .subscribe();
-    }
-
-
-    public static String download(String appLocation) throws Exception {
-        System.out.println(appLocation);
-
-        HttpGet httpGet = new HttpGet(appLocation);
-        CloseableHttpClient httpClient = HttpClients.createDefault();
-        FileOutputStream fos;
-        HttpResponse response = httpClient.execute(httpGet);
-        InputStream inputStream = response.getEntity().getContent();
-        String fileName=appLocation.substring(appLocation.lastIndexOf("/")+1);
-        System.out.println(fileName);
-
-        try {
-/*            File path = new File("/home/vcap/app/tasks");
-            if (!path.exists()) {
-                path.mkdirs();
-            }*/
-            File file = new File(fileName);
-            if (file.exists()){
-                System.out.println(fileName+" exists");
-                return fileName;
-            }
-
-            fos = new FileOutputStream(file);
-            byte[] data = new byte[1024];
-            int len = 0;
-            while ((len = inputStream.read(data)) != -1) {
-                fos.write(data, 0, len);
-            }
-            fos.flush();
-            fos.close();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }finally {
-            inputStream.close();
-        }
-        httpClient.close();
-        return fileName;
     }
 
     public static void setEnvVars(
@@ -182,14 +163,44 @@ public class PaasappApplication {
                    .subscribe();
     }
 
+    public static void startApplication(String appName, String uri, Map<String, String> param){
+        System.out.println("start app..."+appName);
+
+        cloudFoundryOperations.applications().start(
+                StartApplicationRequest.builder()
+                        .name(appName)
+                        .build()
+        ).doOnTerminate(new BiConsumer<Void, Throwable>() {
+            @Override
+            public void accept(Void aVoid, Throwable throwable) {
+                System.out.println("run task...");
+                RestTemplate restTemplate = new RestTemplate();
+                HttpHeaders headers = new HttpHeaders();
+                headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+                HttpEntity<Map> entity = new HttpEntity<Map>(param, headers);
+                restTemplate.postForObject(uri, entity, Map.class,param);
+            }
+        }).subscribe();
+    }
+
+    public static void stopApplication(String appName){
+        cloudFoundryOperations.applications().stop(StopApplicationRequest.builder().name(appName).build());
+    }
+
+    public static Flux<ApplicationSummary> findApplication(){
+        return cloudFoundryOperations.applications()
+                .list()
+                .filter(applicationSummary -> applicationSummary.getName()
+                        .startsWith("emptyapp") && applicationSummary.getRunningInstances() == 0);
+    }
+
     public static String getApplicationName() throws IOException{
         String vcap_appication = System.getenv("VCAP_APPLICATION");
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(SerializationConfig.Feature.INDENT_OUTPUT, Boolean.TRUE);
         Map<String,String> map = mapper.readValue(vcap_appication,Map.class);
         System.out.println(map);
-        String applicationName = map.get("application_name");
 
-        return applicationName;
+        return map.get("application_name");
     }
 }

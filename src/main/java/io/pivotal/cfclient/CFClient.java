@@ -16,22 +16,15 @@
 package io.pivotal.cfclient;
 
 import org.cloudfoundry.client.CloudFoundryClient;
-import org.cloudfoundry.client.v2.applications.UpdateApplicationRequest;
 import org.cloudfoundry.operations.CloudFoundryOperations;
 import org.cloudfoundry.operations.CloudFoundryOperationsBuilder;
-import org.cloudfoundry.operations.applications.ApplicationSummary;
-import org.cloudfoundry.operations.applications.RenameApplicationRequest;
-import org.cloudfoundry.operations.applications.SetEnvironmentVariableApplicationRequest;
 import org.cloudfoundry.spring.client.SpringCloudFoundryClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import reactor.core.publisher.Mono;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /**
+ * CF-Java-Client Bean
  * Created by ezhang on 16/5/22.
  */
 @Configuration
@@ -55,13 +48,6 @@ public class CFClient {
                 .cloudFoundryClient(cloudFoundryClient)
                 .target(organization, space)
                 .build();
-    }
-
-
-    public String getUnUsedPaasApp(){
-       // cloudFoundryClient().applicationsV2().get();
-       // cloudFoundryOperations().applications().list().f
-        return "";
     }
 
 }

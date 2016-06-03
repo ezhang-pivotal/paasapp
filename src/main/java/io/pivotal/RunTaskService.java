@@ -15,9 +15,25 @@
  */
 package io.pivotal;
 
+import com.sun.tools.javadoc.Start;
+import org.cloudfoundry.operations.applications.ApplicationSummary;
+import org.cloudfoundry.operations.applications.SetEnvironmentVariableApplicationRequest;
+import org.cloudfoundry.operations.applications.StartApplicationRequest;
+import org.cloudfoundry.operations.applications.StopApplicationRequest;
+import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
 import java.io.*;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.function.Consumer;
 
 @RestController
 /**
@@ -28,36 +44,44 @@ public class RunTaskService {
     @RequestMapping(value= "/run-task" , method = {RequestMethod.POST})
     public void runTask(@RequestBody Map<String, String> runTaskRequest) throws  Exception{
         System.out.println("Run task request: "+runTaskRequest);
-        //setTaskApp
-        String applicationName = PaasappApplication.getApplicationName();
-        PaasappApplication.setEnvVars(applicationName,runTaskRequest);
-        PaasappApplication.changeRoute(applicationName,runTaskRequest.get("taskName"));
-        String fileName = PaasappApplication.download(runTaskRequest.get("appLocation"));
-        doRunTask(runTaskRequest.get("cmd"),fileName);
+        ApplicationSummary entry = (PaasappApplication.cloudFoundryOperations.applications()
+                .list()
+                .filter(applicationSummary -> applicationSummary.getName()
+                        .startsWith("emptyapp") && applicationSummary.getRunningInstances() == 0))
+                .asList().get().get(0);
+        Flux.fromIterable(runTaskRequest.entrySet())
+                                    .concatMap(env -> PaasappApplication.cloudFoundryOperations.applications()
+                                    .setEnvironmentVariable(SetEnvironmentVariableApplicationRequest.builder()
+                                    .name(entry.getName())
+                                    .variableName(env.getKey())
+                                    .variableValue(env.getValue())
+                                    .build()).subscribe());
+
+        (PaasappApplication.cloudFoundryOperations.applications()
+                                    .start(StartApplicationRequest.builder()
+                                        .name(entry.getName())
+                                    .build()))
+                                    .doOnSuccess(new Consumer<Void>() {
+                                        @Override
+                                        public void accept(Void aVoid) {
+                                            String uri = entry.getUrls().get(0);
+                                            System.out.println("run task..."+uri);
+
+                                            RestTemplate restTemplate = new RestTemplate();
+                                            HttpHeaders headers = new HttpHeaders();
+                                            headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+                                            HttpEntity<Map> entity = new HttpEntity<Map>(runTaskRequest, headers);
+
+                                            restTemplate.postForObject("http://"+uri+"/run-task", entity, Map.class,runTaskRequest);
+                                        }
+                                    }
+                 ).subscribe();
     }
 
-    public void doRunTask(String cmd, String appFileName) throws Exception {
-        try {
-
-            String[] env = new String[2];
-            env[0]= ("PATH=/home/vcap/app/.java-buildpack/open_jdk_jre/bin");
-            env[1]=("CLASSPATH="+appFileName);
-            Process ps = Runtime.getRuntime().exec("/home/vcap/app/.java-buildpack/open_jdk_jre/bin/"+cmd,env);
-            ps.waitFor();
-
-            BufferedReader br = new BufferedReader(new InputStreamReader(ps.getInputStream()));
-            StringBuffer sb = new StringBuffer();
-            String line;
-            while ((line = br.readLine()) != null) {
-                sb.append(line).append("\n");
-            }
-            String result = sb.toString();
-            System.out.println(result);
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
+    @RequestMapping(value= "/finish-task" , method = {RequestMethod.POST})
+    public void finishTask(@RequestBody Map<String, String> finTaskRequest) throws  Exception{
+        System.out.println("finish task request: "+finTaskRequest);
+        PaasappApplication.cloudFoundryOperations.applications().stop(StopApplicationRequest.builder()
+            .name(finTaskRequest.get("name")).build());
     }
-
-
 }
