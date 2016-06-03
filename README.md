@@ -23,10 +23,13 @@ $ cf push passapp
 ```
 
 ### deploy emptyapp
-cf push emptyapp -p /Users/ezhang/IdeaProjects/emptyapp/target/emptyapp-0.0.1-SNAPSHOT.war --no-start
-cf push emptyapp1 -p /Users/ezhang/IdeaProjects/emptyapp/target/emptyapp-0.0.1-SNAPSHOT.war --no-start
-cf push emptyapp2 -p /Users/ezhang/IdeaProjects/emptyapp/target/emptyapp-0.0.1-SNAPSHOT.war --no-start
-
+```shell
+$ git clone https://github.com/emptyapp
+$ mvn package
+$ cf push emptyapp -p /Users/ezhang/IdeaProjects/emptyapp/target/emptyapp-0.0.1-SNAPSHOT.war --no-start
+$ cf push emptyapp1 -p /Users/ezhang/IdeaProjects/emptyapp/target/emptyapp-0.0.1-SNAPSHOT.war --no-start
+$ cf push emptyapp2 -p /Users/ezhang/IdeaProjects/emptyapp/target/emptyapp-0.0.1-SNAPSHOT.war --no-start
+```
 ### build testapp
 
 ```java
