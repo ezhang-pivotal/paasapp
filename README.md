@@ -45,7 +45,11 @@ public class TestApp {
 }
 ```
 
-### test
+### runtask
 ```shell
 curl -H "Content-Type: application/json" -X POST --data '{"taskName":"demo1","cmd":"java io.pivotal.TestApp","appLocation":"http://192.168.11.1:8000/testapp-1.0-SNAPSHOT.jar"}' http://paasapp.local.pcfdev.io/run-task
+```
+### incremental update (not finished)
+```shell
+curl -H "Content-Type: application/json" -X POST --data '{"appName":"demo1","appLocation":"http://192.168.11.1:8000/testapp-1.0-SNAPSHOT.jar"}' http://paasapp.local.pcfdev.io/update
 ```

@@ -20,6 +20,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.cloudfoundry.operations.CloudFoundryOperations;
+import org.cloudfoundry.operations.DefaultCloudFoundryOperations;
 import org.cloudfoundry.operations.applications.*;
 import org.cloudfoundry.operations.routes.CreateRouteRequest;
 import org.cloudfoundry.operations.routes.DeleteRouteRequest;
@@ -73,11 +74,11 @@ public class PaasappApplication extends SpringBootServletInitializer {
 	}
     public static ConfigurableApplicationContext context;
     public static SpringCloudFoundryClient cloudFoundryClient;
-    public static CloudFoundryOperations cloudFoundryOperations;
+    public static DefaultCloudFoundryOperations cloudFoundryOperations;
     public static void main(String[] args) {
         context =SpringApplication.run(PaasappApplication.class, args);
         cloudFoundryClient = context.getBean("cloudFoundryClient",SpringCloudFoundryClient.class);
-        cloudFoundryOperations = context.getBean("cloudFoundryOperations",CloudFoundryOperations.class);
+        cloudFoundryOperations = context.getBean("cloudFoundryOperations",DefaultCloudFoundryOperations.class);
 
     }
     @RequestMapping("upload")
@@ -149,43 +150,7 @@ public class PaasappApplication extends SpringBootServletInitializer {
                 .subscribe();
     }
 
-    public static void setEnvVars(
-                                 String appName,
-                                 Map<String, String> env) {
 
-           Flux.fromIterable(env.entrySet())
-                   .concatMap(entry -> cloudFoundryOperations.applications()
-                           .setEnvironmentVariable(SetEnvironmentVariableApplicationRequest.builder()
-                                   .name(appName)
-                                   .variableName(entry.getKey())
-                                   .variableValue(entry.getValue())
-                                   .build()))
-                   .subscribe();
-    }
-
-    public static void startApplication(String appName, String uri, Map<String, String> param){
-        System.out.println("start app..."+appName);
-
-        cloudFoundryOperations.applications().start(
-                StartApplicationRequest.builder()
-                        .name(appName)
-                        .build()
-        ).doOnTerminate(new BiConsumer<Void, Throwable>() {
-            @Override
-            public void accept(Void aVoid, Throwable throwable) {
-                System.out.println("run task...");
-                RestTemplate restTemplate = new RestTemplate();
-                HttpHeaders headers = new HttpHeaders();
-                headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-                HttpEntity<Map> entity = new HttpEntity<Map>(param, headers);
-                restTemplate.postForObject(uri, entity, Map.class,param);
-            }
-        }).subscribe();
-    }
-
-    public static void stopApplication(String appName){
-        cloudFoundryOperations.applications().stop(StopApplicationRequest.builder().name(appName).build());
-    }
 
     public static Flux<ApplicationSummary> findApplication(){
         return cloudFoundryOperations.applications()

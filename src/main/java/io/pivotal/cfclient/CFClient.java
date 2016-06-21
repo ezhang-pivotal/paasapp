@@ -17,7 +17,7 @@ package io.pivotal.cfclient;
 
 import org.cloudfoundry.client.CloudFoundryClient;
 import org.cloudfoundry.operations.CloudFoundryOperations;
-import org.cloudfoundry.operations.CloudFoundryOperationsBuilder;
+import org.cloudfoundry.operations.DefaultCloudFoundryOperations;
 import org.cloudfoundry.spring.client.SpringCloudFoundryClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -41,13 +41,14 @@ public class CFClient {
     }
 
     @Bean
-    public CloudFoundryOperations cloudFoundryOperations(CloudFoundryClient cloudFoundryClient,
-                                                  @Value("${cf.organization}") String organization,
-                                                  @Value("${cf.space}") String space) {
-            return new CloudFoundryOperationsBuilder()
+    public DefaultCloudFoundryOperations cloudFoundryOperations(CloudFoundryClient cloudFoundryClient,
+                                                                @Value("${cf.organization}") String organization,
+                                                                @Value("${cf.space}") String space) {
+            return DefaultCloudFoundryOperations.builder()
                 .cloudFoundryClient(cloudFoundryClient)
-                .target(organization, space)
-                .build();
+                    .organization(organization)
+                    .space(space)
+                    .build();
     }
 
 }
